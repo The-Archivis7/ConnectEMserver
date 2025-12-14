@@ -3201,9 +3201,6 @@ body {
             div.innerHTML = `${avatarHtml}<div class="message-content"><div class="username">${username}${verified ? `<span class="verified-badge" title="Verified">☑️</span>` : ""}</div><div class="text">${formattedMessage}</div><div class="timestamp">${timestampText}</div></div>${modToolsHtml}`;
         }
         container.appendChild(div);
-        if (container === chatBox) {
-            container.appendChild(typingIndicator);
-        }
     }
 
     async function renderMessages(isInitialLoad = false, isLoadingOlder = false, oldScrollHeight = 0, oldScrollTop = 0, keepScrollPosition = false) {
@@ -3253,8 +3250,29 @@ body {
             .order('timestamp', { ascending: true })
             .range(start, end);
 
-        loadedMessages = data || [];
-        if (loadedMessages.length < PAGE_SIZE) allOlderLoaded = true;
+loadedMessages = data || [];
+if (loadedMessages.length === 0) {
+    // Add test messages if no messages from database
+    loadedMessages = [
+        {
+            id: 'test1',
+            user_id: 'testuser1',
+            username: 'TestUser1',
+            avatar_url: '',
+            message: 'Hello, this is a test message.',
+            timestamp: new Date().toISOString()
+        },
+        {
+            id: 'test2',
+            user_id: 'testuser2',
+            username: 'TestUser2',
+            avatar_url: '',
+            message: 'This is another test message.',
+            timestamp: new Date().toISOString()
+        }
+    ];
+}
+if (loadedMessages.length < PAGE_SIZE) allOlderLoaded = true;
         
         loadingOlderDiv.style.display = allOlderLoaded ? 'none' : 'block';
         await renderMessages(true);
@@ -3454,7 +3472,12 @@ body {
                 loadedMessages.push(payload.new);
                 totalMessageCount += 1;
                 await displayMessage(payload.new);
-                
+
+                // Ensure typing indicator is at the end
+                if (typingIndicator) {
+                    chatBox.appendChild(typingIndicator);
+                }
+
                 if (wasScrolledToBottom) {
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }
