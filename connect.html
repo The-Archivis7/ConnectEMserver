@@ -3200,10 +3200,9 @@ body {
         } else {
             div.innerHTML = `${avatarHtml}<div class="message-content"><div class="username">${username}${verified ? `<span class="verified-badge" title="Verified">☑️</span>` : ""}</div><div class="text">${formattedMessage}</div><div class="timestamp">${timestampText}</div></div>${modToolsHtml}`;
         }
+        container.appendChild(div);
         if (container === chatBox) {
-            container.insertBefore(div, typingIndicator);
-        } else {
-            container.appendChild(div);
+            container.appendChild(typingIndicator);
         }
     }
 
@@ -3214,11 +3213,16 @@ body {
             chatBox.querySelectorAll('.message').forEach(el => el.remove());
             chatBox.prepend(loadingOlderDiv);
 
-            for (const msg of loadedMessages) {
-                await displayMessage(msg); // This will now respect blocklist
-            }
-            
-            // applyBlocklist(); // No longer needed here, displayMessage handles it
+        for (const msg of loadedMessages) {
+            await displayMessage(msg); // This will now respect blocklist
+        }
+
+        // Ensure typing indicator is at the end
+        if (typingIndicator) {
+            chatBox.appendChild(typingIndicator);
+        }
+
+        // applyBlocklist(); // No longer needed here, displayMessage handles it
             
             setTimeout(() => {
                 const currentScrollHeight = chatBox.scrollHeight;
