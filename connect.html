@@ -2812,9 +2812,13 @@ body {
     let onlineUsers = {};
 
     const verifiedCache = {};
+    const supermodCache = {};
     function clearVerifiedCache() {
         for (const key in verifiedCache) {
             delete verifiedCache[key];
+        }
+        for (const key in supermodCache) {
+            delete supermodCache[key];
         }
     }
 
@@ -2867,18 +2871,22 @@ body {
         onlineUsersList.innerHTML = '';
         userList.sort((a, b) => a.user.localeCompare(b.user)); // Sort alphabetically
 
-        userList.forEach(presence => {
+        userList.forEach(async (presence) => {
             const div = document.createElement('div');
             div.className = 'online-user-item';
-            
+
             const avatar = (presence.avatar && presence.avatar.trim() !== "")
                 ? presence.avatar
                 : `https://api.dicebear.com/6.x/thumbs/svg?seed=${encodeURIComponent(presence.user)}`;
 
+            const verified = presence.is_verified;
+            const supermod = await isUserSupermod(presence.user);
+
             div.innerHTML = `
                 <img src="${avatar}" alt="${presence.user} avatar">
                 <span>${presence.user}</span>
-                ${presence.is_verified ? `<span class="verified-badge" title="Verified">✅</span>` : ""}
+                ${verified ? `<span class="verified-badge" title="Verified">✅</span>` : ""}
+                ${supermod ? `<span class="supermod-badge" title="Super Moderator">👑</span>` : ""}
             `;
             onlineUsersList.appendChild(div);
         });
@@ -2952,6 +2960,18 @@ body {
         return verified;
     }
 
+    async function isUserSupermod(username) {
+        if (supermodCache.hasOwnProperty(username)) return supermodCache[username];
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('is_supermod')
+            .eq('username', username)
+            .single();
+        const supermod = !!(data && data.is_supermod);
+        supermodCache[username] = supermod;
+        return supermod;
+    }
+
     async function updateGlobalAvatarAndName() {
         // === DEBUG ===
         console.log('[updateGlobalAvatarAndName] Running auth check...');
@@ -2973,13 +2993,14 @@ body {
         const userId = authData.user.id;
         const { data: profile } = await supabase
             .from("profiles")
-            .select("username, is_verified")
+            .select("username, is_verified, is_supermod")
             .eq("id", userId)
             .single();
 
         window.currentUser = authData.user;
         currentUsername = cleanUsername(profile?.username) || "Anonymous";
         currentUserIsVerified = !!profile?.is_verified;
+        currentUserIsSupermod = !!profile?.is_supermod;
         
         // === DEBUG ===
         console.log(`[updateGlobalAvatarAndName] State updated. currentUser: ${window.currentUser.id}, currentUsername: ${currentUsername}`);
@@ -2991,6 +3012,8 @@ body {
             : `https://api.dicebear.com/6.x/thumbs/svg?seed=${encodeURIComponent(currentUsername)}`;
         userNameSpan.textContent = currentUsername;
         userVerifiedImg.style.display = currentUserIsVerified ? "" : "none";
+        const userSupermodImg = document.getElementById('user-supermod');
+        if (userSupermodImg) userSupermodImg.style.display = currentUserIsSupermod ? "" : "none";
         userInfoDiv.style.display = 'flex';
         
         modMenuBtn.style.display = currentUserIsVerified ? 'flex' : 'none';
@@ -3154,6 +3177,7 @@ body {
         div.dataset.username = username;
         div.dataset.timestamp = msg.timestamp;
         const verified = await isUserVerified(msg.username);
+        const supermod = await isUserSupermod(msg.username);
         const dateOpts = { month: 'short', day: 'numeric', year: 'numeric' };
         const timeOpts = { hour: 'numeric', minute: '2-digit', hour12: true };
         const formattedDate = new Date(msg.timestamp).toLocaleDateString('en-US', dateOpts);
@@ -4359,7 +4383,8 @@ function handleReply(messageId, username) {
         channel = subscribeToMessages({
             username: currentUsername,
             avatar: userAvatarImg.src,
-            isVerified: currentUserIsVerified
+            isVerified: currentUserIsVerified,
+            isSupermod: currentUserIsSupermod
         });
         
         supabase.auth.onAuthStateChange(async (event, session) => {
@@ -4397,7 +4422,8 @@ function handleReply(messageId, username) {
                 channel = subscribeToMessages({
                     username: currentUsername,
                     avatar: userAvatarImg.src,
-                    isVerified: currentUserIsVerified
+                    isVerified: currentUserIsVerified,
+                    isSupermod: currentUserIsSupermod
                 });
                 console.log('[visibilitychange] New channel subscribed and presence tracked.');
 
